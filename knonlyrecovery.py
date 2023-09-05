@@ -63,8 +63,12 @@ priors['redshift']=0.01
 priors
 
 result2 = redback.fit_model(transient=kntransient2_on, model=model, sampler='nestle', model_kwargs=model_kwargs,
-                           prior=priors, nlive=1000, plot=False, resume=True, clean=True, injection_parameters=injection_parameters)
+                           prior=priors, nlive=1000, plot=False, resume=True,  injection_parameters=injection_parameters)
 ax=result2.plot_lightcurve(show=False)
+for f in frequencies:
+    kn=redback.transient_models.extinction_models.extinction_with_kilonova_base_model(times, base_model='two_layer_stratified_kilonova', **params, frequency=f, 
+                                                                                      output_format='flux_density')
+    ax.plot(times,kn, ls=':', c='k', alpha=0.4)
 ax.loglog()
 
 f1 = mpatches.Patch(color='blueviolet', label='radio')
@@ -79,7 +83,7 @@ f9 = mpatches.Patch(color='orange', label='lsstu')
 f10=mpatches.Patch(color='orangered', label='UVOT:uvw1')
 f11=mpatches.Patch(color='red', label='UV')
 agline=  Line2D([0],[0],color='k', ls='--', label='afterglow', alpha=0.4)
-knline=  Line2D([0],[0],color='k', ls=':', label='kilonova', alpha=0.4)
-plt.legend(handles=[f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11],loc='lower left',bbox_to_anchor=(0, 0))
-plt.savefig('knonly_lightcurve2.png', dpi='figure')
+knline=  Line2D([0],[0],color='k', ls=':', label='true fit', alpha=0.4)
+plt.legend(handles=[f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,knline],loc='lower left',bbox_to_anchor=(0, 0))
+#plt.savefig('knonly_lightcurve2_on.png', dpi='figure')
 plt.show()
