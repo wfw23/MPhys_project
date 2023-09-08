@@ -29,15 +29,15 @@ frequencies
 model_kwargs = {'output_format':'flux_density', 'frequency':frequencies}
 
 agkwargs={}
-agkwargs['loge0'] = 51
-agkwargs['logn0'] = 0.5
+agkwargs['loge0'] = 49.5
+agkwargs['logn0'] = -1
 agkwargs['p'] = 2.3
 agkwargs['logepse'] = -1.25
 agkwargs['logepsb'] = -2.5
 agkwargs['xiN'] = 1
 agkwargs['g0'] = 1000
-agkwargs['thv']= 0.03
-agkwargs['thc'] = 0.06
+agkwargs['thv']= 0.7
+agkwargs['thc'] = 0.05
 agkwargs['base_model']='tophat_redback'
 knkwargs={}
 knkwargs['mej']=0.03
@@ -57,20 +57,26 @@ combined_model =  SimulateGenericTransient(model='afterglow_and_optical', parame
                                             times=times, data_points=num_points, model_kwargs=model_kwargs, 
                                             multiwavelength_transient=True, noise_term=noise)
 
-significant_onk = redback.transient.Afterglow(name='significant_onk', flux_density=combined_model.data['output'].values,
+verykndominated = redback.transient.Afterglow(name='verykndominated', flux_density=combined_model.data['output'].values,
                                       time=combined_model.data['time'].values, data_mode='flux_density',
                                       flux_density_err=combined_model.data['output_error'].values, frequency=combined_model.data['frequency'].values)
 
-significant_onk.plot_data()
+verykndominated.plot_data()
 model='two_layer_stratified_kilonova'
 injection_parameters= knkwargs
-model_kwargs = dict(frequency=significant_onk.filtered_frequencies, output_format='flux_density')
+model_kwargs = dict(frequency=verykndominated.filtered_frequencies, output_format='flux_density')
 priors = redback.priors.get_priors(model='two_layer_stratified_kilonova')
 priors['redshift']=0.01
 
-result = redback.fit_model(transient=significant_onk, model=model, sampler='nestle', model_kwargs=model_kwargs,
-                           prior=priors, nlive=500, plot=False, resume=True, injection_parameters=injection_parameters)
+result = redback.fit_model(transient=verykndominated, model=model, sampler='nestle', model_kwargs=model_kwargs,
+                           prior=priors, nlive=500, plot=False, resume=True, 
+                           injection_parameters=injection_parameters)
 ax=result.plot_lightcurve(show=False)
+for f in frequencies:
+    knkwargs['frequency']=f
+    flux= redback.transient_models.extinction_models.extinction_with_kilonova_base_model(times, redshift=0.01, av=0.5,
+     **knkwargs)
+    ax.plot(times, flux, ls='--', color='k', alpha=0.5)
 ax.loglog()
 
 f1 = mpatches.Patch(color='blueviolet', label='radio')
