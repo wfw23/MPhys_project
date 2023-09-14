@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 from redback.simulate_transients import SimulateGenericTransient
 import matplotlib.patches as mpatches
 from matplotlib.lines import Line2D
+from bilby.core.prior import PriorDict, Uniform, Sine
 
 times= np.linspace(0.1,40,200)
 num_points=100
@@ -29,15 +30,15 @@ frequencies
 model_kwargs = {'output_format':'flux_density', 'frequency':frequencies}
 
 agkwargs={}
-agkwargs['loge0'] = 49.5
-agkwargs['logn0'] = -1
+agkwargs['loge0'] = 51.5
+agkwargs['logn0'] = 1
 agkwargs['p'] = 2.3
 agkwargs['logepse'] = -1.25
 agkwargs['logepsb'] = -2.5
 agkwargs['xiN'] = 1
 agkwargs['g0'] = 1000
-agkwargs['thv']= 0.7
-agkwargs['thc'] = 0.05
+agkwargs['thv']= 0.5
+agkwargs['thc'] = 0.07
 agkwargs['base_model']='tophat_redback'
 knkwargs={}
 knkwargs['mej']=0.03
@@ -57,26 +58,34 @@ combined_model =  SimulateGenericTransient(model='afterglow_and_optical', parame
                                             times=times, data_points=num_points, model_kwargs=model_kwargs, 
                                             multiwavelength_transient=True, noise_term=noise)
 
-verykndominated = redback.transient.Afterglow(name='verykndominated', flux_density=combined_model.data['output'].values,
+kntest = redback.transient.Afterglow(name='kntest', flux_density=combined_model.data['output'].values,
                                       time=combined_model.data['time'].values, data_mode='flux_density',
                                       flux_density_err=combined_model.data['output_error'].values, frequency=combined_model.data['frequency'].values)
 
-verykndominated.plot_data()
-model='two_layer_stratified_kilonova'
+kntest.plot_data()
+model='extinction_with_kilonova_base_model'
+base_model='two_layer_stratified_kilonova'
+knkwargs['av']=0.5
 injection_parameters= knkwargs
-model_kwargs = dict(frequency=verykndominated.filtered_frequencies, output_format='flux_density')
-priors = redback.priors.get_priors(model='two_layer_stratified_kilonova')
+model_kwargs = dict(frequency=kntest.filtered_frequencies, output_format='flux_density', base_model=base_model)
+priors = redback.priors.get_priors(model=base_model)
 priors['redshift']=0.01
+priors['av']=Uniform(minimum=0, maximum=2, name='av', latex_label='$av$', unit=None, boundary=None)
 
-result = redback.fit_model(transient=verykndominated, model=model, sampler='nestle', model_kwargs=model_kwargs,
+result = redback.fit_model(transient=kntest, model=model, sampler='dynesty', model_kwargs=model_kwargs,
                            prior=priors, nlive=500, plot=False, resume=True, 
                            injection_parameters=injection_parameters)
-ax=result.plot_lightcurve(show=False)
+band_labels=['radio']
+band_labels.extend(bands)
+band_labels.append('X-Ray')
+ax=result.plot_lightcurve(show=False, band_labels=band_labels)
+
 for f in frequencies:
     knkwargs['frequency']=f
-    flux= redback.transient_models.extinction_models.extinction_with_kilonova_base_model(times, redshift=0.01, av=0.5,
+    flux= redback.transient_models.extinction_models.extinction_with_kilonova_base_model(times, redshift=0.01,
      **knkwargs)
     ax.plot(times, flux, ls='--', color='k', alpha=0.5)
+
 ax.loglog()
 
 f1 = mpatches.Patch(color='blueviolet', label='radio')
@@ -89,9 +98,10 @@ f7 = mpatches.Patch(color='yellowgreen', label='lsstr',alpha=0.7)
 f8 = mpatches.Patch(color='gold', label='lsstg', alpha=0.7)
 f9 = mpatches.Patch(color='orange', label='lsstu')
 f10=mpatches.Patch(color='orangered', label='UVOT:uvw1')
-f11=mpatches.Patch(color='red', label='UV')
+f11=mpatches.Patch(color='red', label='X-ray')
 agline=  Line2D([0],[0],color='k', ls='--', label='afterglow', alpha=0.4)
 knline=  Line2D([0],[0],color='k', ls=':', label='kilonova', alpha=0.4)
-plt.legend(handles=[f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11],loc='lower left',bbox_to_anchor=(0, 0))
+plt.legend(loc='lower left',bbox_to_anchor=(0, 0))
+#handles=[f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11],
 #plt.savefig('agonly_lightcurve.png', dpi='figure')
 plt.show()

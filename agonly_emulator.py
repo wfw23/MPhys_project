@@ -20,7 +20,8 @@ num_points=100
 noise=0.25
 
 bands = ['F160W', 'F110W','lssty', 'lsstz','lssti', 'lsstr','lsstg','lsstu', 'uvot::uvw1']
-frequencies=[5e9, 2e17]
+#frequencies=[5e9, 2e17]
+frequencies=[]
 bandfreqs = (redback.utils.bands_to_frequency(bands))
 frequencies.extend(bandfreqs)
 frequencies.sort()
@@ -57,20 +58,20 @@ combined_model =  SimulateGenericTransient(model='afterglow_and_optical', parame
                                             times=times, data_points=num_points, model_kwargs=model_kwargs, 
                                             multiwavelength_transient=True, noise_term=noise)
 
-significant_off = redback.transient.Afterglow(name='significant_off', flux_density=combined_model.data['output'].values,
+significant_off_optical = redback.transient.Afterglow(name='significant_off_optical', flux_density=combined_model.data['output'].values,
                                       time=combined_model.data['time'].values, data_mode='flux_density',
                                       flux_density_err=combined_model.data['output_error'].values, frequency=combined_model.data['frequency'].values)
 
-significant_off.plot_data()
+significant_off_optical.plot_data()
 model='tophat_from_emulator'
 injection_parameters= agkwargs
-model_kwargs = dict(frequency=significant_off.filtered_frequencies, output_format='flux_density')
+model_kwargs = dict(frequency=significant_off_optical.filtered_frequencies, output_format='flux_density')
 priors = redback.priors.get_priors(model='tophat_redback')
 priors['redshift']=0.01
 priors['xiN']=1
 priors
 
-result = redback.fit_model(transient=significant_off, model=model, sampler='nestle', model_kwargs=model_kwargs,
+result = redback.fit_model(transient=significant_off_optical, model=model, sampler='nestle', model_kwargs=model_kwargs,
                            prior=priors, nlive=500, plot=False, resume=True, injection_parameters=injection_parameters)
 ax=result.plot_lightcurve(show=False)
 for f in frequencies:
@@ -81,8 +82,8 @@ for f in frequencies:
 ax.loglog()
 
 f1 = mpatches.Patch(color='blueviolet', label='radio')
-f2 = mpatches.Patch(color='b', label='F160W')
-f3 = mpatches.Patch(color='dodgerblue', label='F110W')
+f2 = mpatches.Patch(color='blueviolet', label='F160W')
+f3 = mpatches.Patch(color='blue', label='F110W')
 f4 = mpatches.Patch(color='deepskyblue', label='lssty')
 f5 = mpatches.Patch(color='turquoise', label='lsstz')
 f6 = mpatches.Patch(color='mediumspringgreen', label='lssti')
@@ -90,9 +91,9 @@ f7 = mpatches.Patch(color='yellowgreen', label='lsstr',alpha=0.7)
 f8 = mpatches.Patch(color='gold', label='lsstg', alpha=0.7)
 f9 = mpatches.Patch(color='orange', label='lsstu')
 f10=mpatches.Patch(color='orangered', label='UVOT:uvw1')
-f11=mpatches.Patch(color='red', label='UV')
+f11=mpatches.Patch(color='red', label='X-Ray')
 agline=  Line2D([0],[0],color='k', ls='--', label='afterglow', alpha=0.4)
 knline=  Line2D([0],[0],color='k', ls=':', label='kilonova', alpha=0.4)
-plt.legend(handles=[f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11],loc='lower left',bbox_to_anchor=(0, 0))
-#plt.savefig('agonly_lightcurve.png', dpi='figure')
+plt.legend(handles=[f2,f3,f4,f5,f6,f7,f8,f9,f10],loc='lower left',bbox_to_anchor=(0, 0))
+plt.savefig('sigoff_optical.png', dpi='figure')
 plt.show()
