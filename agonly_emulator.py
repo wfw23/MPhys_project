@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 from redback.simulate_transients import SimulateGenericTransient
 import matplotlib.patches as mpatches
 from matplotlib.lines import Line2D
+from bilby.core.prior import PriorDict, Uniform, Sine
 
 times= np.linspace(0.1,40,200)
 num_points=100
@@ -63,20 +64,27 @@ significant_off_optical = redback.transient.Afterglow(name='significant_off_opti
                                       flux_density_err=combined_model.data['output_error'].values, frequency=combined_model.data['frequency'].values)
 
 significant_off_optical.plot_data()
-model='tophat_from_emulator'
+model='extinction_with_afterglow_base_model'
+base_model='tophat_from_emulator'
+agkwargs['av']=0.5
 injection_parameters= agkwargs
-model_kwargs = dict(frequency=significant_off_optical.filtered_frequencies, output_format='flux_density')
-priors = redback.priors.get_priors(model='tophat_redback')
+model_kwargs = dict(frequency=significant_off_optical.filtered_frequencies, output_format='flux_density', base_model=base_model)
+priors = redback.priors.get_priors(model=base_model)
 priors['redshift']=0.01
+priors['av']=Uniform(minimum=0, maximum=2, name='av', latex_label='$av$', unit=None, boundary=None)
 priors['xiN']=1
-priors
+
 
 result = redback.fit_model(transient=significant_off_optical, model=model, sampler='nestle', model_kwargs=model_kwargs,
-                           prior=priors, nlive=500, plot=False, resume=True, injection_parameters=injection_parameters)
-ax=result.plot_lightcurve(show=False)
+                           prior=priors, nlive=1000, plot=False, resume=True, injection_parameters=injection_parameters)
+band_labels=['radio']
+band_labels.extend(bands)
+band_labels.append('X-Ray')
+ax=result.plot_lightcurve(show=False, band_labels=band_labels)
+
 for f in frequencies:
     agkwargs['frequency']=f
-    flux= redback.transient_models.extinction_models.extinction_with_afterglow_base_model(times, redshift=0.01, av=0.5,
+    flux= redback.transient_models.extinction_models.extinction_with_afterglow_base_model(times, redshift=0.01,
      **agkwargs)
     ax.plot(times, flux, ls='--', color='k', alpha=0.5)
 ax.loglog()
@@ -94,6 +102,6 @@ f10=mpatches.Patch(color='orangered', label='UVOT:uvw1')
 f11=mpatches.Patch(color='red', label='X-Ray')
 agline=  Line2D([0],[0],color='k', ls='--', label='afterglow', alpha=0.4)
 knline=  Line2D([0],[0],color='k', ls=':', label='kilonova', alpha=0.4)
-plt.legend(handles=[f2,f3,f4,f5,f6,f7,f8,f9,f10],loc='lower left',bbox_to_anchor=(0, 0))
-plt.savefig('sigoff_optical.png', dpi='figure')
+plt.legend(loc='lower left',bbox_to_anchor=(0, 0))
+plt.savefig('significant_off_optical.png', dpi='figure')
 plt.show()

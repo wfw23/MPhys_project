@@ -30,15 +30,15 @@ frequencies
 model_kwargs = {'output_format':'flux_density', 'frequency':frequencies}
 
 agkwargs={}
-agkwargs['loge0'] = 51.5
-agkwargs['logn0'] = 1
+agkwargs['loge0'] = 51.0
+agkwargs['logn0'] = 0.5
 agkwargs['p'] = 2.3
 agkwargs['logepse'] = -1.25
 agkwargs['logepsb'] = -2.5
 agkwargs['xiN'] = 1
 agkwargs['g0'] = 1000
-agkwargs['thv']= 0.5
-agkwargs['thc'] = 0.07
+agkwargs['thv']= 0.03
+agkwargs['thc'] = 0.06
 agkwargs['base_model']='tophat_redback'
 knkwargs={}
 knkwargs['mej']=0.03
@@ -58,22 +58,22 @@ combined_model =  SimulateGenericTransient(model='afterglow_and_optical', parame
                                             times=times, data_points=num_points, model_kwargs=model_kwargs, 
                                             multiwavelength_transient=True, noise_term=noise)
 
-kntest = redback.transient.Afterglow(name='kntest', flux_density=combined_model.data['output'].values,
+significant_onk = redback.transient.Afterglow(name='significant_onk', flux_density=combined_model.data['output'].values,
                                       time=combined_model.data['time'].values, data_mode='flux_density',
                                       flux_density_err=combined_model.data['output_error'].values, frequency=combined_model.data['frequency'].values)
 
-kntest.plot_data()
+significant_onk.plot_data()
 model='extinction_with_kilonova_base_model'
 base_model='two_layer_stratified_kilonova'
 knkwargs['av']=0.5
 injection_parameters= knkwargs
-model_kwargs = dict(frequency=kntest.filtered_frequencies, output_format='flux_density', base_model=base_model)
+model_kwargs = dict(frequency=significant_onk.filtered_frequencies, output_format='flux_density', base_model=base_model)
 priors = redback.priors.get_priors(model=base_model)
 priors['redshift']=0.01
 priors['av']=Uniform(minimum=0, maximum=2, name='av', latex_label='$av$', unit=None, boundary=None)
 
-result = redback.fit_model(transient=kntest, model=model, sampler='dynesty', model_kwargs=model_kwargs,
-                           prior=priors, nlive=500, plot=False, resume=True, 
+result = redback.fit_model(transient=significant_onk, model=model, sampler='nestle', model_kwargs=model_kwargs,
+                           prior=priors, nlive=1000, plot=False, resume=True, 
                            injection_parameters=injection_parameters)
 band_labels=['radio']
 band_labels.extend(bands)
@@ -103,5 +103,5 @@ agline=  Line2D([0],[0],color='k', ls='--', label='afterglow', alpha=0.4)
 knline=  Line2D([0],[0],color='k', ls=':', label='kilonova', alpha=0.4)
 plt.legend(loc='lower left',bbox_to_anchor=(0, 0))
 #handles=[f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11],
-#plt.savefig('agonly_lightcurve.png', dpi='figure')
+plt.savefig('significant_ok.png', dpi='figure')
 plt.show()
