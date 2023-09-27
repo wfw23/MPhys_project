@@ -16,8 +16,8 @@ import matplotlib.patches as mpatches
 from matplotlib.lines import Line2D
 from bilby.core.prior import PriorDict, Uniform, Sine
 
-times= np.linspace(0.1,40,100)
-num_points=40
+times=  np.logspace(3.94,6.8,50)/86400
+num_points=50
 noise=0.25
 
 
@@ -33,6 +33,8 @@ agkwargs['xiN'] = 1
 agkwargs['g0'] = 1000
 agkwargs['thv']= 0.07
 agkwargs['thc'] = 0.09
+agkwargs['redshift'] = 0.01
+'''
 agkwargs['base_model']='tophat_redback'
 knkwargs={}
 knkwargs['mej']=0.03
@@ -47,35 +49,35 @@ params['av'] = 0.5
 params['model_type']='kilonova'
 params['afterglow_kwargs']=agkwargs
 params['optical_kwargs']=knkwargs
-    
-combined_model =  SimulateGenericTransient(model='afterglow_and_optical', parameters=params,
+'''    
+agmodel =  SimulateGenericTransient(model='tophat_redback', parameters=agkwargs,
                                             times=times, data_points=num_points, model_kwargs=model_kwargs, 
                                             multiwavelength_transient=False, noise_term=noise)
 
-agdominates_on_restest = redback.transient.Afterglow(name='agdominates_on_restest', flux_density=combined_model.data['output'].values,
-                                      time=combined_model.data['time'].values, data_mode='flux_density',
-                                      flux_density_err=combined_model.data['output_error'].values, frequency=combined_model.data['frequency'].values)
+log_agmodel = redback.transient.Afterglow(name='log_agmodel', flux_density=agmodel.data['output'].values,
+                                      time=agmodel.data['time'].values, data_mode='flux_density',
+                                      flux_density_err=agmodel.data['output_error'].values, frequency=agmodel.data['frequency'].values)
 
-agdominates_on_restest.plot_data()
-model='extinction_with_afterglow_base_model'
-base_model='tophat_from_emulator'
+log_agmodel.plot_data()
+model='tophat_from_emulator'
+#base_model='tophat_from_emulator'
 agkwargs['av']=0.5
 injection_parameters= agkwargs
-model_kwargs = dict(frequency=agdominates_on_restest.filtered_frequencies, output_format='flux_density', base_model=base_model)
-priors = redback.priors.get_priors(model=base_model)
+model_kwargs = dict(frequency=log_agmodel.filtered_frequencies, output_format='flux_density')#, base_model=base_model)
+priors = redback.priors.get_priors(model=model)
 priors['redshift']=0.01
-priors['av']=Uniform(minimum=0, maximum=2, name='av', latex_label='$av$', unit=None, boundary=None)
+#priors['av']=Uniform(minimum=0, maximum=2, name='av', latex_label='$av$', unit=None, boundary=None)
 priors['xiN']=1
 
 
-result = redback.fit_model(transient=agdominates_on_restest, model=model, sampler='nestle', model_kwargs=model_kwargs,
+result = redback.fit_model(transient=log_agmodel, model=model, sampler='nestle', model_kwargs=model_kwargs,
                            prior=priors, nlive=1000, plot=False, resume=True,injection_parameters=injection_parameters)
 
 ax=result.plot_lightcurve(show=False)
 
 
 agkwargs['frequency']=3.45e14
-flux= redback.transient_models.extinction_models.extinction_with_afterglow_base_model(times, redshift=0.01,
+flux= redback.transient_models.afterglow_models.tophat_redback(times, output_format='flux_density',
      **agkwargs)
 ax.plot(times, flux, ls='--', color='k', alpha=0.5)
 ax.loglog()

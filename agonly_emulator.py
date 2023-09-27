@@ -77,14 +77,16 @@ priors['xiN']=1
 
 result = redback.fit_model(transient=significant_off_optical, model=model, sampler='nestle', model_kwargs=model_kwargs,
                            prior=priors, nlive=1000, plot=False, resume=True, injection_parameters=injection_parameters)
-band_labels=['radio']
+
+#band_labels=['radio']
+band_labels=[]
 band_labels.extend(bands)
-band_labels.append('X-Ray')
+#band_labels.append('X-Ray')
 ax=result.plot_lightcurve(show=False, band_labels=band_labels)
 
 for f in frequencies:
     agkwargs['frequency']=f
-    flux= redback.transient_models.extinction_models.extinction_with_afterglow_base_model(times, redshift=0.01,
+    flux= redback.transient_models.extinction_models.extinction_with_afterglow_base_model(times, redshift=0.01, 
      **agkwargs)
     ax.plot(times, flux, ls='--', color='k', alpha=0.5)
 ax.loglog()
