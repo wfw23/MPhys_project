@@ -53,9 +53,9 @@ x=result.meta_data['time']
 y=result.meta_data['flux_density']
 sigma=result.meta_data['flux_density_err']
 new_likelihood = redback.likelihoods.GaussianLikelihood(x,y ,sigma=sigma, function=tophat_redback, kwargs=kwargs)
-#emulator_like= redback.likelihoods.GaussianLikelihood(x,y ,sigma=sigma, function=tophat_from_emulator, kwargs=kwargs)
+emulator_like= redback.likelihoods.GaussianLikelihood(x,y ,sigma=sigma, function=tophat_from_emulator, kwargs=kwargs)
 
-new_result= rw(result, label='rw_logagmodel', new_likelihood=new_likelihood)
+new_result= rw(result, label='rw_logagmodel', new_likelihood=new_likelihood,use_nested_samples=True)
 new_result.save_to_file('rw_logagmodel.json')
 ax2= new_result.plot_lightcurve(show=False, band_labels='3.45e14')
 
@@ -66,7 +66,7 @@ for f in frequencies:
      **agkwargs)
     ax2.plot(times, flux, ls='--', color='k', alpha=0.5)
 '''
-flux= redback.transient_models.afterglow_models.tophat_redback(times, redshift=0.01, **agkwargs)
+flux= redback.transient_models.afterglow_models.tophat_redback(times, redshift=0.01, frequency=3.45e14, **agkwargs)
 ax2.plot(times,flux, ls='--', color='k')
 ax2.loglog()
 plt.show()

@@ -18,12 +18,13 @@ from matplotlib.lines import Line2D
 from bilby.core.prior import PriorDict, Uniform, Sine
 from redback.transient_models.afterglow_models import tophat_redback, tophat_from_emulator
 
-times= np.linspace(0.1,40,200)
+#times= np.linspace(0.1,40,200)
+times=  np.logspace(3.94,6.8,50)/86400
 num_points=40
 noise=0.25
 
 
-model_kwargs = {'output_format':'flux_density', 'frequency':5e9}
+model_kwargs = {'output_format':'flux_density', 'frequency':3.45e14}
 
 agkwargs={}
 agkwargs['redshift'] = 0.01
@@ -34,7 +35,7 @@ agkwargs['logepse'] = -1.25
 agkwargs['logepsb'] = -2.5
 agkwargs['xiN'] = 1
 agkwargs['g0'] = 1000
-agkwargs['thv']= 0.07
+agkwargs['thv']= 0.7
 agkwargs['thc'] = 0.09
 
 afterglow_data =  SimulateGenericTransient(model='tophat_redback', parameters=agkwargs,
@@ -66,7 +67,7 @@ priors['logepsb']=-2.5
 priors['g0']=1000
 priors['xiN']=1
 
-for i in range(100):
+for i in range(20):
     samples=priors.sample()
     tophat_redback_likelihood.parameters.update(samples)
     samples.pop('xiN')
