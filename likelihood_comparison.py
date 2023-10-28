@@ -19,12 +19,12 @@ from bilby.core.prior import PriorDict, Uniform, Sine
 from redback.transient_models.afterglow_models import tophat_redback, tophat_from_emulator
 
 #times= np.linspace(0.1,40,200)
-times=  np.logspace(3.94,6.8,50)/86400
+times=  np.logspace(3.94,6.6,50)/86400
 num_points=40
 noise=0.25
 
 
-model_kwargs = {'output_format':'flux_density', 'frequency':3.45e14}
+model_kwargs = {'output_format':'flux_density', 'frequency':5e9}
 
 agkwargs={}
 agkwargs['redshift'] = 0.01
@@ -35,8 +35,8 @@ agkwargs['logepse'] = -1.25
 agkwargs['logepsb'] = -2.5
 agkwargs['xiN'] = 1
 agkwargs['g0'] = 1000
-agkwargs['thv']= 0.7
-agkwargs['thc'] = 0.09
+agkwargs['thv']= 0.25
+agkwargs['thc'] = 0.08
 
 afterglow_data =  SimulateGenericTransient(model='tophat_redback', parameters=agkwargs,
                                             times=times, data_points=num_points, model_kwargs=model_kwargs, 
