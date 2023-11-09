@@ -22,8 +22,8 @@ num_points=100
 noise=0.25
 
 bands = ['F160W', 'F110W','lssty', 'lsstz','lssti', 'lsstr','lsstg','lsstu', 'uvot::uvw1']
-frequencies=[5e9, 2e17]
-#frequencies=[]
+#frequencies=[5e9, 2e17]
+frequencies=[]
 bandfreqs = (redback.utils.bands_to_frequency(bands))
 frequencies.extend(bandfreqs)
 frequencies.sort()
@@ -32,14 +32,14 @@ frequencies
 model_kwargs = {'output_format':'flux_density', 'frequency':frequencies}
 
 agkwargs={}
-agkwargs['loge0'] = 51.0
-agkwargs['logn0'] = 0.5
+agkwargs['loge0'] = 51.5
+agkwargs['logn0'] = 1
 agkwargs['p'] = 2.3
 agkwargs['logepse'] = -1.25
 agkwargs['logepsb'] = -2.5
 agkwargs['xiN'] = 1
 agkwargs['g0'] = 1000
-agkwargs['thv']= 0.03
+agkwargs['thv']= 0.5
 agkwargs['thc'] = 0.07
 agkwargs['base_model']='tophat_redback'
 knkwargs={}
@@ -103,36 +103,39 @@ sig_on =  SimulateGenericTransient(model='afterglow_and_optical', parameters=par
                                             multiwavelength_transient=True, noise_term=noise)
 sig_on.save_transient(name='sig_on')
 '''
-data=pd.read_csv('/home/wfw23/Mphys_proj/simulated/sig_on.csv')
-sig_on_agonly_constrained = redback.transient.Afterglow(name='sig_on_agonly_constrained', flux_density=data['output'].values,
+data=pd.read_csv('/home/wfw23/Mphys_proj/simulated/sig_off.csv')
+data.mask(data['frequency']==5e9, inplace=True)
+data.mask(data['frequency']==2e17, inplace=True)
+data.dropna(how='any', inplace=True)
+sig_off_agonly_optical = redback.transient.Afterglow(name='sig_off_agonly_optical', flux_density=data['output'].values,
                                       time=data['time'].values, data_mode='flux_density',
                                       flux_density_err=data['output_error'].values, frequency=data['frequency'].values)
-sig_on_agonly_constrained.plot_data()
+sig_off_agonly_optical.plot_data()
 
 model='extinction_with_afterglow_base_model'
 base_model='tophat_from_emulator'
 agkwargs['av']=0.5
 injection_parameters= agkwargs
-model_kwargs = dict(frequency=sig_on_agonly_constrained.filtered_frequencies, output_format='flux_density', base_model=base_model, axis='on')
+model_kwargs = dict(frequency=sig_off_agonly_optical.filtered_frequencies, output_format='flux_density', base_model=base_model, axis='off')
 
 priors = PriorDict(conversion_function=afterglow_constraints)
 priors['max_flux']= Constraint(minimum=0, maximum=10)
 priors['peak_time']= Constraint(minimum=0, maximum=200)
 priors['alignment']= Constraint(minimum=0, maximum=1.57)
-priors['min_flux']=Constraint(minimum=10e-7, maximum=10)
+priors['min_flux']=Constraint(minimum=0, maximum=10)
 
 priors.update(redback.priors.get_priors(model='tophat_redback'))
-#priors=redback.priors.get_priors(model='tophat_redback')
+priors=redback.priors.get_priors(model='tophat_redback')
 priors['redshift']=0.01
 priors['av']=Uniform(minimum=0, maximum=2, name='av', latex_label='$av$', unit=None, boundary=None)
 priors['xiN']= 1.0
-result = redback.fit_model(transient=sig_on_agonly_constrained, model=model, sampler='nestle', model_kwargs=model_kwargs,
+result = redback.fit_model(transient=sig_off_agonly_optical, model=model, sampler='nestle', model_kwargs=model_kwargs,
                            prior=priors, nlive=1000, plot=False, resume=True, injection_parameters=injection_parameters)
 
-band_labels=['radio']
-#band_labels=[]
+#band_labels=['radio']
+band_labels=[]
 band_labels.extend(bands)
-band_labels.append('X-Ray')
+#band_labels.append('X-Ray')
 ax=result.plot_lightcurve(show=False, band_labels=band_labels)
 
 for f in frequencies:

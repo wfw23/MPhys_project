@@ -31,15 +31,15 @@ frequencies
 model_kwargs = {'output_format':'flux_density', 'frequency':frequencies}
 
 agkwargs={}
-agkwargs['loge0'] = 51.5
-agkwargs['logn0'] = 1
-agkwargs['p'] = 2.3
-agkwargs['logepse'] = -1.25
-agkwargs['logepsb'] = -2.5
+agkwargs['loge0'] = 51.98
+agkwargs['logn0'] = 0.76
+agkwargs['p'] = 2.32
+agkwargs['logepse'] = -1.15
+agkwargs['logepsb'] = -2.11
 agkwargs['xiN'] = 1
-agkwargs['g0'] = 1000
-agkwargs['thv']= 0.5
-agkwargs['thc'] = 0.07
+agkwargs['g0'] = 1685.05
+agkwargs['thv']= 0.41
+agkwargs['thc'] = 0.03
 agkwargs['base_model']='tophat_redback'
 knkwargs={}
 knkwargs['mej']=0.03
@@ -61,26 +61,42 @@ combined_model =  SimulateGenericTransient(model='afterglow_and_optical', parame
                                             multiwavelength_transient=True, noise_term=noise)
 '''
 data=pd.read_csv('/home/wfw23/Mphys_proj/simulated/sig_off.csv')
-sig_off_knonly = redback.transient.Afterglow(name='sig_off_knonly', flux_density=data['output'].values,
+data.mask(data['frequency']==5e9, inplace=True)
+data.mask(data['frequency']==2e17, inplace=True)
+data.dropna(how='any', inplace=True)
+
+afterglow_values= redback.transient_models.extinction_models.extinction_with_afterglow_base_model(data['time'].values, av=0.99, redshift=0.01, **agkwargs, output_format='flux_density',
+                                                                                                  frequency=data['frequency'].values)
+#subtracted data
+flux_density= data['output'].values - afterglow_values
+flux_density_err= (data['output_error']/data['output'])*flux_density
+data['output']=flux_density
+data['output_error']=flux_density_err
+data.mask(data['output']<=0, inplace=True)
+data.mask(data['output_error']> (2*data['output']), inplace=True)
+data.dropna(how='any', inplace=True)
+
+subtracted_knonly_off_pred2 = redback.transient.Afterglow(name='subtracted_knonly_off_pred2', flux_density=data['output'].values,
                                       time=data['time'].values, data_mode='flux_density',
                                       flux_density_err=data['output_error'].values, frequency=data['frequency'].values)
 
-sig_off_knonly.plot_data()
+subtracted_knonly_off_pred2.plot_data()
 model='extinction_with_kilonova_base_model'
 base_model='two_layer_stratified_kilonova'
 knkwargs['av']=0.5
 injection_parameters= knkwargs
-model_kwargs = dict(frequency=sig_off_knonly.filtered_frequencies, output_format='flux_density', base_model=base_model)
+model_kwargs = dict(frequency=subtracted_knonly_off_pred2.filtered_frequencies, output_format='flux_density', base_model=base_model)
 priors = redback.priors.get_priors(model=base_model)
 priors['redshift']=0.01
 priors['av']=Uniform(minimum=0, maximum=2, name='av', latex_label='$av$', unit=None, boundary=None)
 
-result = redback.fit_model(transient=sig_off_knonly, model=model, sampler='nestle', model_kwargs=model_kwargs,
+result = redback.fit_model(transient=subtracted_knonly_off_pred2, model=model, sampler='nestle', model_kwargs=model_kwargs,
                            prior=priors, nlive=1000, plot=False, resume=True, 
                            injection_parameters=injection_parameters)
-band_labels=['radio']
+#band_labels=['radio']
+band_labels=[]
 band_labels.extend(bands)
-band_labels.append('X-Ray')
+#band_labels.append('X-Ray')
 ax=result.plot_lightcurve(show=False, band_labels=band_labels)
 
 for f in frequencies:
