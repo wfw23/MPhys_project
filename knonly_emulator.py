@@ -68,36 +68,43 @@ data.dropna(how='any', inplace=True)
 afterglow_values= redback.transient_models.extinction_models.extinction_with_afterglow_base_model(data['time'].values, av=0.99, redshift=0.01, **agkwargs, output_format='flux_density',
                                                                                                   frequency=data['frequency'].values)
 #subtracted data
+#print(len(data))
+data.mask((data['output']-data['output_error'] <= afterglow_values) & (afterglow_values <= data['output']+data['output_error']), inplace=True)
+#print(len(data))
 flux_density= data['output'].values - afterglow_values
+#print(data['output'].values)
 flux_density_err= (data['output_error']/data['output'])*flux_density
 data['output']=flux_density
 data['output_error']=flux_density_err
-data.mask(data['output']<=0, inplace=True)
+data.mask(data['output']<=5e-6, inplace=True)
 data.mask(data['output_error']> (2*data['output']), inplace=True)
 data.dropna(how='any', inplace=True)
 
-subtracted_knonly_off_pred2 = redback.transient.Afterglow(name='subtracted_knonly_off_pred2', flux_density=data['output'].values,
+subtracted_knonly_off_pred_new = redback.transient.Afterglow(name='subtracted_knonly_off_pred_new', flux_density=data['output'].values,
                                       time=data['time'].values, data_mode='flux_density',
                                       flux_density_err=data['output_error'].values, frequency=data['frequency'].values)
 
-subtracted_knonly_off_pred2.plot_data()
+subtracted_knonly_off_pred_new.plot_data()
 model='extinction_with_kilonova_base_model'
 base_model='two_layer_stratified_kilonova'
 knkwargs['av']=0.5
 injection_parameters= knkwargs
-model_kwargs = dict(frequency=subtracted_knonly_off_pred2.filtered_frequencies, output_format='flux_density', base_model=base_model)
+model_kwargs = dict(frequency=subtracted_knonly_off_pred_new.filtered_frequencies, output_format='flux_density', base_model=base_model)
 priors = redback.priors.get_priors(model=base_model)
 priors['redshift']=0.01
 priors['av']=Uniform(minimum=0, maximum=2, name='av', latex_label='$av$', unit=None, boundary=None)
 
-result = redback.fit_model(transient=subtracted_knonly_off_pred2, model=model, sampler='nestle', model_kwargs=model_kwargs,
+result = redback.fit_model(transient=subtracted_knonly_off_pred_new, model=model, sampler='nestle', model_kwargs=model_kwargs,
                            prior=priors, nlive=1000, plot=False, resume=True, 
                            injection_parameters=injection_parameters)
+
+band_colors={5e9:'crimson',1.952e14:'orangered',2.601e14:'orange',3.083e14:'gold',3.454e14:'greenyellow',3.983e14:'limegreen',
+             4.825e14:'mediumaquamarine',6.273e14:'c',8.152e14:'deepskyblue',1.141e15:'blue',2e17:'blueviolet'}
 #band_labels=['radio']
 band_labels=[]
 band_labels.extend(bands)
 #band_labels.append('X-Ray')
-ax=result.plot_lightcurve(show=False, band_labels=band_labels)
+ax=result.plot_lightcurve(show=False, band_labels=band_labels, band_colors=band_colors)
 
 for f in frequencies:
     knkwargs['frequency']=f
