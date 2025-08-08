@@ -31,15 +31,15 @@ frequencies
 model_kwargs = {'output_format':'flux_density', 'frequency':frequencies}
 
 agkwargs={}
-agkwargs['loge0'] = 51.98
-agkwargs['logn0'] = 0.76
-agkwargs['p'] = 2.32
-agkwargs['logepse'] = -1.15
-agkwargs['logepsb'] = -2.11
+agkwargs['loge0'] = 52.0#on-ax = 51.0 , off-ax = 51.5, dom=52
+agkwargs['logn0'] = 1.5 #on-ax = 0.5, off-ax = 1, dom=1.5
+agkwargs['p'] = 2.3
+agkwargs['logepse'] = -1.25
+agkwargs['logepsb'] = -2.5
 agkwargs['xiN'] = 1
-agkwargs['g0'] = 1685.05
-agkwargs['thv']= 0.41
-agkwargs['thc'] = 0.03
+agkwargs['g0'] = 1000
+agkwargs['thv']= 0.03 #on-ax = 0.03, off-ax = 0.5, dom =0.03
+agkwargs['thc'] = 0.08 #on/off=0.07, dom=0.08
 agkwargs['base_model']='tophat_redback'
 knkwargs={}
 knkwargs['mej']=0.03
@@ -60,16 +60,19 @@ combined_model =  SimulateGenericTransient(model='afterglow_and_optical', parame
                                             times=times, data_points=num_points, model_kwargs=model_kwargs, 
                                             multiwavelength_transient=True, noise_term=noise)
 '''
-data=pd.read_csv('/home/wfw23/Mphys_proj/simulated/sig_off.csv')
+data=pd.read_csv('/home/wfw23/Mphys_proj/simulated/agdom_on.csv')
+
+'''
 data.mask(data['frequency']==5e9, inplace=True)
 data.mask(data['frequency']==2e17, inplace=True)
 data.dropna(how='any', inplace=True)
 
-afterglow_values= redback.transient_models.extinction_models.extinction_with_afterglow_base_model(data['time'].values, av=0.99, redshift=0.01, **agkwargs, output_format='flux_density',
-                                                                                                  frequency=data['frequency'].values)
+
+afterglow_values= redback.transient_models.extinction_models.extinction_with_afterglow_base_model(data['time'].values, av=0.5, redshift=0.01, **agkwargs, output_format='flux_density',
+                                                                                               frequency=data['frequency'].values)
 #subtracted data
 #print(len(data))
-data.mask((data['output']-data['output_error'] <= afterglow_values) & (afterglow_values <= data['output']+data['output_error']), inplace=True)
+#data.mask((data['output']-data['output_error'] <= afterglow_values) & (afterglow_values <= data['output']+data['output_error']), inplace=True)
 #print(len(data))
 flux_density= data['output'].values - afterglow_values
 #print(data['output'].values)
@@ -80,7 +83,8 @@ data.mask(data['output']<=5e-6, inplace=True)
 data.mask(data['output_error']> (2*data['output']), inplace=True)
 data.dropna(how='any', inplace=True)
 
-subtracted_knonly_off_pred_new = redback.transient.Afterglow(name='subtracted_knonly_off_pred_new', flux_density=data['output'].values,
+'''
+subtracted_knonly_off_pred_new = redback.transient.Afterglow(name='new_knonly_agdom', flux_density=data['output'].values,
                                       time=data['time'].values, data_mode='flux_density',
                                       flux_density_err=data['output_error'].values, frequency=data['frequency'].values)
 
@@ -94,16 +98,25 @@ priors = redback.priors.get_priors(model=base_model)
 priors['redshift']=0.01
 priors['av']=Uniform(minimum=0, maximum=2, name='av', latex_label='$av$', unit=None, boundary=None)
 
-result = redback.fit_model(transient=subtracted_knonly_off_pred_new, model=model, sampler='nestle', model_kwargs=model_kwargs,
-                           prior=priors, nlive=1000, plot=False, resume=True, 
-                           injection_parameters=injection_parameters)
+
+nwalkers=100
+start_pos = bilby.core.prior.PriorDict()
+for key in ['av', 'kappa', 'beta']:
+    start_pos[key] = bilby.core.prior.Normal(injection_parameters[key], 0.01)
+for key in ['mej', 'vej_1', 'vej_2']:
+    start_pos[key] = bilby.core.prior.Normal(injection_parameters[key], 0.001)
+pos0 = pd.DataFrame(start_pos.sample(nwalkers))
+
+result = redback.fit_model(transient=subtracted_knonly_off_pred_new, model=model, sampler='emcee', model_kwargs=model_kwargs,
+                           prior=priors, plot=False, resume=True,clean=True,
+                           injection_parameters=injection_parameters, walks=nwalkers, nlive=2000, nburn=1000, pos0=pos0)
 
 band_colors={5e9:'crimson',1.952e14:'orangered',2.601e14:'orange',3.083e14:'gold',3.454e14:'greenyellow',3.983e14:'limegreen',
              4.825e14:'mediumaquamarine',6.273e14:'c',8.152e14:'deepskyblue',1.141e15:'blue',2e17:'blueviolet'}
-#band_labels=['radio']
-band_labels=[]
+band_labels=['radio']
+#band_labels=[]
 band_labels.extend(bands)
-#band_labels.append('X-Ray')
+band_labels.append('X-Ray')
 ax=result.plot_lightcurve(show=False, band_labels=band_labels, band_colors=band_colors)
 
 for f in frequencies:

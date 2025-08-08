@@ -32,15 +32,15 @@ frequencies
 model_kwargs = {'output_format':'flux_density', 'frequency':frequencies}
 
 agkwargs={}
-agkwargs['loge0'] = 51.0
-agkwargs['logn0'] = 0.5
+agkwargs['loge0'] = 52.0#on-ax = 51.0 , off-ax = 51.5, dom=52
+agkwargs['logn0'] = 1.5 #on-ax = 0.5, off-ax = 1, dom=1.5
 agkwargs['p'] = 2.3
 agkwargs['logepse'] = -1.25
 agkwargs['logepsb'] = -2.5
 agkwargs['xiN'] = 1
 agkwargs['g0'] = 1000
-agkwargs['thv']= 0.02
-agkwargs['thc'] = 0.05
+agkwargs['thv']= 0.03 #on-ax = 0.03, off-ax = 0.5, dom =0.03
+agkwargs['thc'] = 0.08 #on/off=0.07, dom=0.08
 agkwargs['base_model']='tophat_redback'
 knkwargs={}
 knkwargs['mej']=0.03
@@ -101,18 +101,31 @@ def afterglow_constraints(parameters):
 sig_on_test1 =  SimulateGenericTransient(model='afterglow_and_optical', parameters=params,
                                             times=times, data_points=num_points, model_kwargs=model_kwargs, 
                                             multiwavelength_transient=True, noise_term=noise)
-sig_on_test1.save_transient(name='sig_on_test1')
+
+sig_on_test_new.save_transient(name='agdom_on2')
 '''
-data=pd.read_csv('/home/wfw23/Mphys_proj/simulated/sig_on_test1.csv')
+
+data=pd.read_csv('/home/wfw23/Mphys_proj/simulated/agdom_on2.csv') #sig_on_new.csv or sig_off_new.csv
+
+#INCLUDE below if w/out X-ray/radio
+
 '''
 data.mask(data['frequency']==5e9, inplace=True)
 data.mask(data['frequency']==2e17, inplace=True)
 data.dropna(how='any', inplace=True)
 '''
+
 sig_off_agonly_test1 = redback.transient.Afterglow(name='sig_off_agonly_test1', flux_density=data['output'].values,
                                       time=data['time'].values, data_mode='flux_density',
                                       flux_density_err=data['output_error'].values, frequency=data['frequency'].values)
 sig_off_agonly_test1.plot_data()
+
+
+#remember to change name for new recoveries
+sig_on_agonly_test2 = redback.transient.Afterglow(name='new_agdom_on2', flux_density=data['output'].values,
+                                      time=data['time'].values, data_mode='flux_density',
+                                      flux_density_err=data['output_error'].values, frequency=data['frequency'].values)
+sig_on_agonly_test2.plot_data()
 
 model='extinction_with_afterglow_base_model'
 base_model='tophat_from_emulator'
@@ -135,10 +148,32 @@ priors['xiN']= 1.0
 result = redback.fit_model(transient=sig_off_agonly_test1, model=model, sampler='nestle', model_kwargs=model_kwargs,
                            prior=priors, nlive=1000, plot=False, resume=True, injection_parameters=injection_parameters)
 
-band_labels=['radio']
-#band_labels=[]
-band_labels.extend(bands)
-band_labels.append('X-Ray')
+
+nwalkers=100
+start_pos = bilby.core.prior.PriorDict()
+for key in ['logepse','logepsb','av','logn0', 'loge0']:
+    start_pos[key] = bilby.core.prior.Normal(injection_parameters[key], 0.01)
+for key in ['thv', 'thc', 'p']:
+    start_pos[key] = bilby.core.prior.Normal(injection_parameters[key], 0.001)
+for key in ['g0']:
+    start_pos[key] = bilby.core.prior.Normal(injection_parameters[key], 1)
+pos0 = pd.DataFrame(start_pos.sample(nwalkers))
+
+#result = bilby.run_sampler(likelihood=likelihood, sampler='emcee', nwalkers=nwalkers,nsteps=2000, nburn=1600, outdir='kilonova',pos0=pos0, label='spectral', priors=priors, )
+'''
+result = redback.fit_model(transient=sig_on_agonly_test2, model=model, sampler='nestle', model_kwargs=model_kwargs,
+                           prior=priors, plot=False, resume=True,injection_parameters=injection_parameters,
+                           nlive=1000)
+'''                        
+result = redback.fit_model(transient=sig_on_agonly_test2, model=model, sampler='emcee', model_kwargs=model_kwargs,
+                            prior=priors, plot=False,  resume=True, injection_parameters=injection_parameters,
+                            walks=nwalkers, nlive=2200, nburn=1000, pos0=pos0)                         
+
+band_labels=['radio']       #COMMENT OUT if w/out X-ray and radio
+#band_labels=[]             #INCLUDE  if w/out X-ray and radio
+band_labels.extend(bands)   
+band_labels.append('X-Ray') #COMMENT OUT if w/out X-ray and radio
+
 ax=result.plot_lightcurve(show=False, band_labels=band_labels)
 
 for f in frequencies:
